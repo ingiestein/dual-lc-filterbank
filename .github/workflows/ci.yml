@@ -38,6 +38,15 @@ jobs:
 
       - name: Steinberg validator
         run: |
+          set -euo pipefail
           PLUGIN=$(find build -name 'DualLcFilterbank.vst3' -type d | head -n 1)
           test -n "$PLUGIN"
-          ./build/bin/Release/validator "$PLUGIN" || ./build/bin/validator "$PLUGIN"
+          if [ -x build/bin/Release/validator ]; then
+            VALIDATOR=build/bin/Release/validator
+          elif [ -x build/bin/validator ]; then
+            VALIDATOR=build/bin/validator
+          else
+            echo "Steinberg validator binary not found"
+            exit 1
+          fi
+          "$VALIDATOR" "$PLUGIN"

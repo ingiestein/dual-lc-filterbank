@@ -7,6 +7,7 @@
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 
 #include <algorithm>
+#include <cmath>
 
 #if defined(__SSE__)
 #include <xmmintrin.h>
@@ -195,7 +196,20 @@ tresult PLUGIN_API Processor::process (Vst::ProcessData& data)
     }
     enableDenormFlush (false);
 
-    out.silenceFlags = 0;
+    uint64 silence = 0;
+    auto channelSilent = [n = data.numSamples] (const float* buf) {
+        for (int32 i = 0; i < n; ++i)
+        {
+            if (std::abs (buf[i]) > 1.0e-12f)
+                return false;
+        }
+        return true;
+    };
+    if (channelSilent (outL))
+        silence |= 1ull;
+    if (channelSilent (outR))
+        silence |= 2ull;
+    out.silenceFlags = silence;
     return kResultOk;
 }
 
