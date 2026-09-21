@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config \
+            libx11-dev libx11-xcb-dev libxcb-util-dev libxcb-cursor-dev \
+            libxcb-keysyms1-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libfontconfig1-dev libcairo2-dev libfreetype6-dev libpango1.0-dev \
+            libgtkmm-3.0-dev libsqlite3-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSMTG_CREATE_PLUGIN_LINK=OFF \
+            -DDUALLC_BUILD_TESTS=ON \
+            -DDUALLC_BUILD_PLUGIN=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: DSP tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Steinberg validator
+        run: |
+          set -euo pipefail
+          PLUGIN=$(find build -name 'DualLcFilterbank.vst3' -type d | head -n 1)
+          test -n "$PLUGIN"
+          if [ -x build/bin/Release/validator ]; then
+            VALIDATOR=build/bin/Release/validator
+          elif [ -x build/bin/validator ]; then
+            VALIDATOR=build/bin/validator
+          else
+            echo "Steinberg validator binary not found"
+            exit 1
+          fi
+          "$VALIDATOR" "$PLUGIN"
